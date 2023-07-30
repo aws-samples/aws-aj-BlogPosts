@@ -1,0 +1,637 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 102,
+  "iteration": 1685183350221,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${Datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "$Database",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${Datasource}"
+          },
+          "format": 1,
+          "rawSQL": "select count(status) from ca_summary_view  WHERE  status ='Closed'",
+          "refId": "A"
+        }
+      ],
+      "title": "No of Closed Cost Anomalies",
+      "transformations": [
+        {
+          "id": "groupBy",
+          "options": {}
+        }
+      ],
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${Datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 5,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "$Database",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${Datasource}"
+          },
+          "format": 1,
+          "rawSQL": "select count(status) from ca_summary_view WHERE  status ='Open'",
+          "refId": "A"
+        }
+      ],
+      "title": "No of Open Cost Anomalies",
+      "transformations": [
+        {
+          "id": "groupBy",
+          "options": {}
+        }
+      ],
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${Datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 10,
+        "y": 0
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/.*/",
+          "values": true
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "AwsDataCatalog",
+            "database": "$Database",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${Datasource}"
+          },
+          "format": 1,
+          "rawSQL": "SELECT region FROM ca_summary_view order by region desc\nlimit 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Region",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${Datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 15,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/.*/",
+          "values": true
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "AwsDataCatalog",
+            "database": "$Database",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${Datasource}"
+          },
+          "format": 1,
+          "rawSQL": "SELECT service FROM ca_summary_view order by service desc\nlimit 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Service",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${Datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "string"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/.*/",
+          "values": true
+        },
+        "text": {},
+        "textMode": "value"
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "AwsDataCatalog",
+            "database": "$Database",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${Datasource}"
+          },
+          "format": 1,
+          "rawSQL": "SELECT linkedaccount FROM ca_summary_view order by linkedaccount desc\nlimit 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Account ID",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${Datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "anomaly_start_date"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "time:DD/MM/YYYY"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "totalimpactpercentage"
+            },
+            "properties": [
+              {
+                "id": "unit"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 2,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "hidden",
+          "placement": "right"
+        },
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "anomaly_start_date",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "$Database",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${Datasource}"
+          },
+          "format": 1,
+          "rawSQL": "select * from ca_summary_view",
+          "refId": "A"
+        }
+      ],
+      "title": "Anomaly Detection Timeseries",
+      "transformations": [],
+      "transparent": true,
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "${Datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 11,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "$Database",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "${Datasource}"
+          },
+          "format": 1,
+          "rawSQL": "select * from ca_summary_view ",
+          "refId": "A"
+        }
+      ],
+      "title": "All Cost Anomalies",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "Status": 4,
+              "anomaly_start_date": 5,
+              "anomalyid": 2,
+              "anomalylastupdatedate": 6,
+              "dimensionvalue": 7,
+              "linkedaccount": 0,
+              "linkedaccountname": 1,
+              "maximpact": 8,
+              "monitorarn": 17,
+              "month": 14,
+              "region": 12,
+              "service": 3,
+              "tota_impact": 15,
+              "totalactualspend": 9,
+              "totalexpectedspend": 10,
+              "totalimpactpercentage": 16,
+              "usagetype": 11,
+              "year": 13
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 35,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Amazon Athena - AWS Cost Anomaly ",
+          "value": "Amazon Athena - AWS Cost Anomaly "
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "Datasource",
+        "options": [],
+        "query": "grafana-athena-datasource",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "aws-cost-anomalies-db",
+          "value": "aws-cost-anomalies-db"
+        },
+        "datasource": {
+          "type": "grafana-athena-datasource",
+          "uid": "${Datasource}"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "Database",
+        "options": [],
+        "query": {
+          "connectionArgs": {
+            "catalog": "AwsDataCatalog",
+            "database": "aws-cost-anomolies-db",
+            "region": "__default"
+          },
+          "format": 1,
+          "rawSQL": "SHOW DATABASES"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "AWS Cost Anomalies Dashboard1",
+  "uid": "isIQoVwVk1",
+  "version": 3,
+  "weekStart": ""
+}
