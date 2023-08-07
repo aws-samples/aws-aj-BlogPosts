@@ -1,0 +1,154 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template for setting up AWS health event with Eventbridge
+Resources:
+
+  awshealtheventsbucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub  aws-health-events-records-${AWS::AccountId}-${AWS::Region}
+      AccessControl: Private
+
+  MyKinesisFirehoseDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: my-kinesis-delivery-stream-health-events
+      S3DestinationConfiguration:
+        BucketARN: !GetAtt awshealtheventsbucket.Arn
+        RoleARN: !GetAtt EventbrigeFirehoseRole.Arn
+        
+
+  FirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Amazon_EventBridge_Invoke_Firehose
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 
+                 - firehose:PutRecord
+                 - firehose:PutRecordBatch
+                Resource: !GetAtt MyKinesisFirehoseDeliveryStream.Arn
+      
+  EventbrigeFirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: awshealtheventFirehosePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Join [":", [!GetAtt awshealtheventsbucket.Arn, "*"]]
+
+  healtheventGlueCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: aws-health-event-crawler
+      Role: !GetAtt GlueCrawlerRole.Arn
+      DatabaseName: aws-health-events-records
+      Targets:
+        S3Targets:
+          - Path: !Ref awshealtheventsbucket
+      Schedule: 
+        ScheduleExpression: cron(0 */1 * * ? *)
+
+  GlueCrawlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: awshealtheventGlueCrawlerPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt awshealtheventsbucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketLocation
+                Resource: !Join [":", [!GetAtt awshealtheventsbucket.Arn, "*"]]
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: arn:aws:logs:*:*:*
+
+
+
+  AthenaView:
+    Type: AWS::Athena::NamedQuery
+    Properties:
+      Name: MyAthenaView
+      Database: aws-cost-anomalies-db
+      QueryString: >
+          CREATE OR REPLACE VIEW "ah_summar_view" AS
+SELECT  "id", "detail-type", "source", "account",
+CAST("from_iso8601_timestamp"("time") AS date) time,
+"region", "detail"."resources", "detail"."detail"."eventarn","detail"."detail"."service", "detail"."detail"."eventtypecode",
+"detail"."detail"."eventtypecategory", "detail"."detail"."communicationid", "detail"."detail"."eventscopecode",
+date_format(date_parse(regexp_replace("detail"."detail"."starttime", ' GMT$', ''),'%a, %e %b %Y %H:%i:%s'), '%Y-%m-%d-%H:%i') AS starttime,
+date_format(date_parse(regexp_replace("detail"."detail"."endtime", ' GMT$', ''),'%a, %e %b %Y %H:%i:%s'), '%Y-%m-%d-%H:%i') AS endtime,
+"detail"."detail"."statuscode", "detail"."detail"."eventdescription", "partition_0","partition_1","partition_2"
+from "awshealthevents"."2023"
+
+
+  EventRule0:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: default
+      EventPattern:
+        source:
+          - aws.health
+        detail-type:
+          - AWS Health Event
+      Name: aws-health-events-records
+      State: ENABLED
+      Targets:
+
+        - Id: target-1
+          Arn: !GetAtt MyKinesisFirehoseDeliveryStream.Arn
+          RoleArn: !GetAtt FirehoseRole.Arn
+          InputTransformer:
+            InputPathsMap:
+              eventArn: $.detail.eventArn
+              latestDescription: $.detail.eventDescription[0].latestDescription
+              eventTypeCode: $.detail.eventTypeCode
+              entityValue: $.detail.affectedEntities[0].entityValue
+              service: $.detail.service
+              communicationId: $.detail.communicationId
+              lastUpdatedTime: $.detail.lastUpdatedTime
+              language: $.detail.eventDescription[0].language
+              startTime: $.detail.startTime
+              endTime: $.detail.endTime
+              eventRegion: $.detail.eventRegion
+              eventTypeCategory: $.detail.eventTypeCategory
+            InputTemplate: >-
+              {"eventArn": "<eventArn>","service": "<service>","communicationId":"<communicationId>","lastUpdatedTime": "<lastUpdatedTime>","eventRegion": "<eventRegion>","eventTypeCode": "<eventTypeCode>","eventTypeCategory": "<eventTypeCategory>","startTime": "<startTime>","endTime": "<endTime>","language": "<language>","latestDescription": "<latestDescription>","entityValue": "<entityValue>"}
