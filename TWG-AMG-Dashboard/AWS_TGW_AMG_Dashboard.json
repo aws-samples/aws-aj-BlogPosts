@@ -1,0 +1,1459 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "iteration": 1692261891118,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "srcaddr to destaddr"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 16,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "limit": 10,
+          "values": true
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "rawSQL": "select concat_ws(' ',srcaddr, dstaddr) as ids, sum(bytes/1000000) as bytesMBs from $TableView where srcaddr != '-' and dstaddr != '-' and bytes > 0 and $__timeFilter(isostarttime) group by concat_ws(' ',srcaddr, dstaddr)  order by bytesMBs desc limit 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Bytes transfers between source and destination address",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "srcaddr to destaddr",
+            "binary": {
+              "left": "srcaddr",
+              "operator": "+",
+              "reducer": "sum",
+              "right": "dstaddr"
+            },
+            "mode": "binary",
+            "reduce": {
+              "include": [
+                "srcaddr",
+                "dstaddr"
+              ],
+              "reducer": "sum"
+            },
+            "replaceFields": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "bytesMBs": 3,
+              "dstaddr": 2,
+              "srcaddr": 1,
+              "srcaddr to destaddr": 0
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "stat"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 18,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "rawSQL": "select srcaddr as sourceIP, dstaddr as destinationIP, SUM(packets) as \"Total Packets\" from $TableView where $__timeFilter(isostarttime) and srcaddr != '-' and dstaddr != '-' and packets > 0 group by  srcaddr, dstaddr order by SUM(packets)  desc limit 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Top source and destination address by total packets",
+      "type": "table"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 10,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "rawSQL": "select distinct(tgw_src_subnet_id), isostarttime as timestamp, SUM(bytes)/1000000 as total_bytes_in from $TableView where flow_direction = 'ingress' and tgw_src_subnet_id != '-' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) and tgw_id IN (${transitgateway:sqlstring}) and $__timeFilter(isostarttime) group by tgw_src_subnet_id, isostarttime  order by isostarttime desc limit 3",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "select distinct(tgw_src_subnet_id), SUM(bytes)/1000000 as total_bytes_out from $TableView where flow_direction = 'egress' and tgw_src_subnet_id != '-' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) and tgw_id IN (${transitgateway:sqlstring}) and $__timeFilter(isostarttime) group by tgw_src_subnet_id  order by total_bytes_out desc limit 3",
+          "refId": "B"
+        }
+      ],
+      "title": "Top 3 source subnets by BytesIn(Red)/BytesOut(Yellow)",
+      "transformations": [],
+      "type": "gauge"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 12,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "rawSQL": "select distinct(tgw_dst_subnet_id), SUM(bytes)/1000000 as total_bytes_in from $TableView where flow_direction = 'ingress' and tgw_dst_subnet_id != '-' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) and tgw_id IN (${transitgateway:sqlstring}) and $__timeFilter(isostarttime) group by tgw_dst_subnet_id  order by total_bytes_in desc limit 3",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "select distinct(tgw_dst_subnet_id), SUM(bytes)/1000000 as total_bytes_out from tgw_logs_summary_view where flow_direction = 'egress' and tgw_dst_subnet_id != '-' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) and tgw_id IN (${transitgateway:sqlstring}) and $__timeFilter(isostarttime) group by tgw_dst_subnet_id  order by total_bytes_out desc limit 3",
+          "refId": "B"
+        }
+      ],
+      "title": "Top 3 destination subnets by BytesIn(Red)/BytesOut(Yellow)",
+      "transformations": [],
+      "type": "gauge"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 13,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "rawSQL": "   select distinct(tgw_src_vpc_id), SUM(bytes)/1000000 as total_bytes_in from $TableView where flow_direction = 'ingress' and tgw_src_vpc_id != '-' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) and tgw_id IN (${transitgateway:sqlstring}) and $__timeFilter(isostarttime) group by tgw_src_vpc_id  order by total_bytes_in desc limit 5",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "  select distinct(tgw_src_vpc_id), SUM(bytes)/1000000 as total_bytes_in from $TableView where flow_direction = 'egress' and tgw_src_vpc_id != '-' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) and tgw_id IN (${transitgateway:sqlstring}) and $__timeFilter(isostarttime) group by tgw_src_vpc_id  order by total_bytes_in desc limit 5",
+          "refId": "B"
+        }
+      ],
+      "title": "Top 3 source vpc by BytesIn(Red)/BytesOut(Yellow)",
+      "transformations": [],
+      "type": "bargauge"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 14,
+      "options": {
+        "displayMode": "lcd",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "rawSQL": "   select distinct(tgw_dst_vpc_id), SUM(bytes)/1000000 as total_bytes_in from $TableView where flow_direction = 'ingress' and tgw_dst_vpc_id != '-' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) and tgw_id IN (${transitgateway:sqlstring}) and $__timeFilter(isostarttime) group by tgw_dst_vpc_id  order by total_bytes_in desc limit 5",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "   select distinct(tgw_dst_vpc_id), SUM(bytes)/1000000 as total_bytes_in from $TableView where flow_direction = 'egress' and tgw_dst_vpc_id != '-' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) and tgw_id IN (${transitgateway:sqlstring}) and $__timeFilter(isostarttime) group by tgw_dst_vpc_id  order by total_bytes_in desc limit 5",
+          "refId": "B"
+        }
+      ],
+      "title": "Top 3 destination VPC by BytesIn(Red)/BytesOut(Yellow)",
+      "transformations": [],
+      "type": "bargauge"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 2,
+          "rawSQL": "select SUM(bytes) as total_bytes_in, isostarttime from $TableView where flow_direction = 'ingress' group by isostarttime order by isostarttime asc",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "select SUM(bytes) as total_bytes_out, isostarttime from $TableView where flow_direction = 'egress' group by isostarttime order by isostarttime asc",
+          "refId": "B"
+        }
+      ],
+      "title": "BytesIn/BytesOut",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 2,
+          "rawSQL": "select SUM(bytes) as total_bytes_in, isostarttime from $TableView where flow_direction = 'ingress' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) group by isostarttime order by isostarttime asc",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "select SUM(bytes) as total_bytes_out, isostarttime from $TableView where flow_direction = 'egress' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) group by isostarttime order by isostarttime asc",
+          "refId": "B"
+        }
+      ],
+      "title": "BytesIn/BytesOut for $transitgatewayattachment",
+      "type": "timeseries"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 2,
+          "rawSQL": "select SUM(packets) as total_packets_in, isostarttime from $TableView where flow_direction = 'ingress' group by isostarttime order by isostarttime asc",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "select SUM(packets) as total_packets_out, isostarttime from $TableView where flow_direction = 'egress' group by isostarttime order by isostarttime asc",
+          "refId": "B"
+        }
+      ],
+      "title": "PacketsIn/PacketsOut",
+      "type": "timeseries"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 2,
+          "rawSQL": "select SUM(packets) as total_packets_in, isostarttime from $TableView where flow_direction = 'ingress' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) group by isostarttime order by isostarttime asc",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "select SUM(packets) as total_packets_out, isostarttime from tgw_logs_summary_view where flow_direction = 'egress' and tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) group by isostarttime order by isostarttime asc",
+          "refId": "B"
+        }
+      ],
+      "title": "PacketsIn/PacketsOut for $transitgatewayattachment",
+      "type": "timeseries"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 2,
+          "rawSQL": "select SUM(packets_lost_no_route) as total_packets_lost_no_route, isostarttime from $TableView group by isostarttime order by isostarttime asc",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "select SUM(packets_lost_blackhole) as total_packets_lost_blackhole, isostarttime from $TableView group by isostarttime order by isostarttime asc",
+          "refId": "B"
+        }
+      ],
+      "title": "PacketDropCountNoRoute / PacketDropCountBlackhole",
+      "type": "timeseries"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.4.7",
+      "targets": [
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 2,
+          "rawSQL": "select SUM(packets_lost_no_route) as total_packets_lost_no_route, isostarttime from $TableView where tgw_attachment_id IN ( ${transitgatewayattachment:sqlstring} ) group by isostarttime order by isostarttime asc",
+          "refId": "A"
+        },
+        {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "cA0HniPVk"
+          },
+          "format": 1,
+          "hide": false,
+          "rawSQL": "select SUM(packets_lost_blackhole) as total_packets_lost_blackhole, isostarttime from $TableView group by isostarttime order by isostarttime asc",
+          "refId": "B"
+        }
+      ],
+      "title": "PacketDropCountNoRoute / PacketDropCountBlackhole for $transitgatewayattachment",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": false,
+  "schemaVersion": 35,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "AWS Athena - AWS TGW Dashboard",
+          "value": "AWS Athena - AWS TGW Dashboard"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "Datasource",
+        "options": [],
+        "query": "grafana-athena-datasource",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "default",
+          "value": "default"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "Databases",
+        "options": [],
+        "query": {
+          "connectionArgs": {
+            "catalog": "$Datasource",
+            "database": "__default",
+            "region": "__default"
+          },
+          "format": 1,
+          "rawSQL": "show databases"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "tgw_logs_summary_view",
+          "value": "tgw_logs_summary_view"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "TableView",
+        "options": [],
+        "query": {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "default",
+            "region": "__default"
+          },
+          "format": 1,
+          "rawSQL": "show views"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "tgw-attach-0116d7d0b80237099",
+          "value": "tgw-attach-0116d7d0b80237099"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "label": "TransitGatewayAttachment",
+        "multi": false,
+        "name": "transitgatewayattachment",
+        "options": [],
+        "query": {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "$Databases",
+            "region": "__default"
+          },
+          "format": 1,
+          "rawSQL": "select distinct tgw_attachment_id from $__table()",
+          "table": "$TableView"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "tgw-0fe04a20a46feff3b",
+          "value": "tgw-0fe04a20a46feff3b"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "label": "TransitGateway",
+        "multi": false,
+        "name": "transitgateway",
+        "options": [],
+        "query": {
+          "connectionArgs": {
+            "catalog": "__default",
+            "database": "$Databases",
+            "region": "__default"
+          },
+          "format": 1,
+          "rawSQL": "select distinct tgw_id from $__table()",
+          "table": "$TableView"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "",
+  "title": "AWS Transit Gateway Insights Dashboard",
+  "uid": "Flyw4iPVk",
+  "version": 49,
+  "weekStart": ""
+}
