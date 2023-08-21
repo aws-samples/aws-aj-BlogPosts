@@ -44,7 +44,7 @@ Resources:
               - sts:AssumeRole
         Version: 2012-10-17
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole'
       Path: /
       Policies:
         - PolicyName: CE-GlueCrawlerRolePolicy
@@ -202,22 +202,22 @@ Resources:
               if total_count:
                   start_crawler()
               return "Successful"
-  LambdaLogGroup:
+  caLambdaLogGroup:
         Type: AWS::Logs::LogGroup
         Properties:
-          LogGroupName: !Sub "/aws/lambda/${costanomoliesLambdaFunction}"
+          LogGroupName: !Sub '/aws/lambda/${costanomoliesLambdaFunction}'
           RetentionInDays: 7
   costanomoliesLambdaFunctionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: AWS-Cost-Anomolies-Execute-Lambda
+      RoleName: !Sub '${AWS::StackName}-ce-Execute-Lambda'
       AssumeRolePolicyDocument:
         Statement:
           - Effect: Allow
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-  S3BucketAccessPolicy:
+  caS3BucketAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: Cost-Anomaly-S3BucketAccessPolicy
@@ -270,7 +270,7 @@ Resources:
               - logs:CreateLogGroup
               - logs:CreateLogStream
               - logs:PutLogEvents
-            Resource: arn:aws:logs:*:*:*
+            Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*'
   CostExplorerPolicy:
     Type: AWS::IAM::Policy
     Properties:
@@ -289,7 +289,7 @@ Resources:
     Properties:
       Name: AWS-Cost-Anomaly
       Database: aws-cost-anomalies-db
-      Description: Provides a summary view of the AWS Cost Anomalies
+      Description: Provides a summary view of the AWS cost anomalies
       QueryString: |
         CREATE OR REPLACE VIEW "ca_summary_view" AS  SELECT DISTINCT
           "year"
@@ -300,8 +300,8 @@ Resources:
   CloudWatchTrigger:
     Type: AWS::Events::Rule
     Properties:
-      Description: Notification Event for lambda trigger
-      Name: !Sub "cost-anomaly-Scheduler"
+      Description: Notification Event for AWS Lambda trigger
+      Name: !Sub '${AWS::StackName}-Scheduler'
       ScheduleExpression: rate(1 day)
       State: ENABLED
       Targets:
@@ -313,7 +313,7 @@ Resources:
       FunctionName: !GetAtt costanomoliesLambdaFunction.Arn
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
-      SourceAccount: !Ref "AWS::AccountId"
+      SourceAccount: !Ref 'AWS::AccountId'
       SourceArn: !GetAtt CloudWatchTrigger.Arn
 Outputs:
   CostExplorercostanomoliesLambdaRoleARN:
@@ -326,5 +326,5 @@ Outputs:
     Description: AWS Glue Crawler for crawling AWS cost anomolies from the S3 bucket
     Value: !Ref 'costanomoliesGlueCrawler'
   S3Bucket:
-    Description: Name of S3 Bucket which will store the AWS Cost Explorer cost anomolies recommendations
+    Description: Name of Amazon S3 bucket which will store the AWS Cost Explorer cost anomolies recommendations
     Value: !Ref 'awscostanomolybucket'
