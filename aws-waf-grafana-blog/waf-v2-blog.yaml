@@ -1,0 +1,152 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template for setting up resources for Centralized Logging for AWS WAF
+Resources:
+  waflogsbucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub  'aws-waf-logs-${AWS::AccountId}-${AWS::Region}'
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+            BlockPublicAcls : true
+            BlockPublicPolicy : true
+            IgnorePublicAcls : true
+            RestrictPublicBuckets : true
+  FirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: HealthEventsFirehoseLogs
+  FirehoseLogStream:      
+    Type: AWS::Logs::LogStream
+    Properties: 
+      LogGroupName: !Ref FirehoseLogGroup
+      LogStreamName: HealthEventsFirehoStream 
+  LogDestinationKinesisFirehoseDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: aws-waf-logs-kinesis-delivery-stream
+      DeliveryStreamType: DirectPut
+      S3DestinationConfiguration:
+        BucketARN: !GetAtt waflogsbucket.Arn
+        RoleARN: !GetAtt kinesisFirehoseRole.Arn
+        CloudWatchLoggingOptions:
+             Enabled: true
+             LogGroupName: !Ref FirehoseLogGroup
+             LogStreamName: !Ref FirehoseLogStream
+  kinesisFirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        # Policy allowing CloudWatch Logs access
+        - PolicyName: cloudwatch-logs-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*"
+        - PolicyName: AllowS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AllowS3Access
+                Effect: Allow
+                Action:
+                  - "s3:AbortMultipartUpload"
+                  - "s3:GetBucketLocation"
+                  - "s3:GetObject"
+                  - "s3:ListBucket"
+                  - "s3:ListBucketMultipartUploads"
+                  - "s3:PutObject"
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${waflogsbucket}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${waflogsbucket}*'
+  wafDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: 'waflogsdb'
+  waflogsGlueCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: crawl-aws-waf-logs
+      Role: !Ref waflogsGlueCrawlerRole
+      DatabaseName: !Ref wafDatabase
+      Targets:
+        S3Targets:
+          - Path: !Sub 's3://${waflogsbucket}/aws-waf-logs/'
+      Schedule: 
+        ScheduleExpression: cron(0 */1 * * ? *)
+  waflogsGlueCrawlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - glue.amazonaws.com
+            Action: 
+              - sts:AssumeRole
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole'
+      Path: /
+      Policies:
+        - PolicyName: WAF-GlueCrawlerRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ['s3:ListBucket', 's3:GetObject']
+                Resource: 
+                  - !Sub 'arn:aws:s3:::${waflogsbucket}*'
+              - Effect: Allow
+                Action: 
+                 - "s3:PutObject"
+                 - "s3:GetObject"
+                Resource: 
+                  - !Sub 'arn:aws:s3:::${waflogsbucket}*'
+  waflogsathenaworkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties: 
+      Name: waf-logs-athena
+      State: "ENABLED"
+      Tags: 
+        - Key: "GrafanaDataSource"
+          Value: "true"
+  waflogsAthenaView:
+    Type: AWS::Athena::NamedQuery
+    Properties:
+      Name: aws_waf_centralized_logging
+      Database: !Ref wafDatabase
+      QueryString: >
+        CREATE OR REPLACE VIEW "waflogs" AS 
+        SELECT DISTINCT *
+        FROM
+        "AwsDataCatalog".waflogsdb.aws_waf_logs"
+      WorkGroup: !Ref waflogsathenaworkgroup
+Outputs:
+  # Output of Amazon S3 bucket
+  S3bucketname:
+    Value: !Ref waflogsbucket
+  KinesisDeliveryStreamName: 
+    Value: !Ref LogDestinationKinesisFirehoseDeliveryStream
