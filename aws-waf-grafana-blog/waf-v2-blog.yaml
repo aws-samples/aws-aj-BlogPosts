@@ -32,6 +32,8 @@ Resources:
       DeliveryStreamType: DirectPut
       S3DestinationConfiguration:
         BucketARN: !GetAtt waflogsbucket.Arn
+        Prefix: "aws-waf-logs/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
+        ErrorOutputPrefix: "aws-waf-logs-firehose-error/"
         RoleARN: !GetAtt kinesisFirehoseRole.Arn
         CloudWatchLoggingOptions:
              Enabled: true
@@ -137,6 +139,7 @@ Resources:
     Type: AWS::Athena::NamedQuery
     Properties:
       Name: aws_waf_centralized_logging
+      Description: AWS WAF Logging dashboard summary view
       Database: !Ref wafDatabase
       QueryString: >
         CREATE OR REPLACE VIEW "waflogs" AS 
@@ -145,8 +148,6 @@ Resources:
         "AwsDataCatalog".waflogsdb.aws_waf_logs"
       WorkGroup: !Ref waflogsathenaworkgroup
 Outputs:
-  # Output of Amazon S3 bucket
-  S3bucketname:
-    Value: !Ref waflogsbucket
+  # Output of Amazon Kinesis Data Stream
   KinesisDeliveryStreamName: 
     Value: !Ref LogDestinationKinesisFirehoseDeliveryStream
