@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Integration of AWS Cost Anomalies with Atlassian JIRA Issue Creation. **WARNING** This template creates [Amazon Lambda, Amazon CloudWatch Logs] and related resources. You will be billed for the AWS resources used if you create a stack from this template
+
+Parameters:
+  JiraWebHookURL:
+    Type: String
+    Description: Enter Your JIRA Automation Webhook URL
+  SnsTopicArn:
+    Type: String
+    Description: ARN of the existing SNS topic for AWS Cost Anomalies
+
+Resources:
+  AwsCostAnomalyLambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+  LambdaInvokePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: LambdaInvokePolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource: !GetAtt AwsCostAnomalyLambdaFunction.Arn
+
+  AwsCostAnomalyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub aws-cost-anomalies-jira-${AWS::StackName}
+      Handler: index.lambda_handler
+      Runtime: python3.11
+      MemorySize: 256
+      Timeout: 60
+      Role: !GetAtt AwsCostAnomalyLambdaFunctionRole.Arn
+      Environment:
+        Variables:
+          JIRA_Webhook: !Ref JiraWebHookURL  # Pass the JiraWebHookURL parameter to the Lambda environment
+      Code:
+        ZipFile: |
+          import urllib3
+          import json
+          import os
+
+          http = urllib3.PoolManager()
+
+          def lambda_handler(event, context):
+              sns_message = json.loads(event['Records'][0]['Sns']['Message'])
+              jira_webhook = os.environ['JIRA_Webhook']  # Retrieve the webhook URL from environment variable
+
+              url = jira_webhook
+              encoded_msg = json.dumps(sns_message).encode('utf-8')
+              resp = http.request('POST', url, body=encoded_msg, headers={'Content-Type': 'application/json'})
+
+              print({
+                  "message": "Done",
+                  "status_code": resp.status,
+                  "response": resp.data
+              })
+
+  CaLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/aws-cost-anomalies-jira-${AWS::StackName}'
+      RetentionInDays: 7
+
+  LambdaLogGroupPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: LambdaLogGroupPolicy
+      Roles:
+        - !Ref AwsCostAnomalyLambdaFunctionRole
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/aws-cost-anomalies-jira-${AWS::StackName}:*'
+
+  AwsCostAnomalyLambdaFunctionSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: lambda
+      TopicArn: !Ref SnsTopicArn
+      Endpoint: !GetAtt AwsCostAnomalyLambdaFunction.Arn
+
+  SnsInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt AwsCostAnomalyLambdaFunction.Arn
+      Principal: sns.amazonaws.com
