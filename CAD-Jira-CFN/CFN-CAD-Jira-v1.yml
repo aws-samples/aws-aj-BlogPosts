@@ -1,103 +1,150 @@
+---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Integration of AWS Cost Anomalies with Atlassian JIRA Issue Creation. **WARNING** This template creates [Amazon Lambda, Amazon CloudWatch Logs] and related resources. You will be billed for the AWS resources used if you create a stack from this template
-
+Description: AWS Cost Anomaly Notification Integration With Third Party Tools (JIRA & ServiceNow)
 Parameters:
-  JiraWebHookURL:
-    Type: String
-    Description: Enter Your JIRA Automation Webhook URL
   SnsTopicArn:
     Type: String
-    Description: ARN of the existing SNS topic for AWS Cost Anomalies
-
+    Description: ARN of the SNS topic
+  IntegrationURL:
+    Type: String
+    Description: Endpoint Integration URL
 Resources:
-  AwsCostAnomalyLambdaFunctionRole:
+  IntegrationLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      FunctionName: !Sub
+        - aws-cost-anomaly-Integration-${Id}
+        - ID: !Select
+          - 0
+          - !Split
+            - '_'
+            - Ref 'AWS::Stackname'
+      Code:
+        ZipFile:
+          Fn::Sub: |
+            import urllib3
+            import json
+            import os
+            import logging
+            Integration_URL = os.environment["IntegrationURL"]
+            def flattened_anomaly(json_data):
+                flattened_data = {}
+                print("array",flattened_data)
+                flattened_data = json.loads(json_data)
+                return flattened_data
+
+            def post_to_webhook(data):
+                http = urllib3.PoolManager()
+                webhook_url = 'Integration_URL'
+                headers = {"Content-Type": "application/json"}
+                data = json.dumps(data)
+                http.request("POST", webhook_url, headers=headers, body=data)
+                print("Data posted to webhook")
+                return
+
+            def lambda_handler(event, context):
+                sns_message = event["Records"][0]["Sns"]["Message"]
+                logging.info(event)
+                print(event)
+                flattened_data = flattened_anomaly(sns_message)
+                print(flattened_data)
+                post_to_webhook(flattened_data)
+                return
+      Runtime: python3.10
+      Timeout: 60
+      MemorySize: 2688
+      Environment:
+        Variables:
+          IntegrationURL: !Ref 'IntegrationURL'
+  IntegrationLambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: LambdaExecutionRole
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              Service:
-                - lambda.amazonaws.com
+              Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-
-  LambdaInvokePolicy:
-    Type: AWS::IAM::ManagedPolicy
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueSerAWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: SNSPermission
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref 'SnsTopicArn'
+  CaLambdaLogGroup:
+        Type: AWS::Logs::LogGroup
+        Properties:
+          LogGroupName: !Sub '/aws/lambda/${IntegrationLambdaFunction}'
+          RetentionInDays: 7
+  CostAnomaliesLambdaFunctionRole:
+    Type: AWS::IAM::Role
     Properties:
-      ManagedPolicyName: LambdaInvokePolicy
+      RoleName: !Sub '${AWS::StackName}-ce-Execute-Lambda'
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+  CaS3BucketAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: Cost-Anomaly-S3BucketAccessPolicy
+      Roles:
+        - !Ref 'CostAnomaliesLambdaFunctionRole'
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Action:
-              - lambda:InvokeFunction
-            Resource: !GetAtt AwsCostAnomalyLambdaFunction.Arn
-
-  AwsCostAnomalyLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub aws-cost-anomalies-jira-${AWS::StackName}
-      Handler: index.lambda_handler
-      Runtime: python3.11
-      MemorySize: 256
-      Timeout: 60
-      Role: !GetAtt AwsCostAnomalyLambdaFunctionRole.Arn
-      Environment:
-        Variables:
-          JIRA_Webhook: !Ref JiraWebHookURL  # Pass the JiraWebHookURL parameter to the Lambda environment
-      Code:
-        ZipFile: |
-          import urllib3
-          import json
-          import os
-
-          http = urllib3.PoolManager()
-
-          def lambda_handler(event, context):
-              sns_message = json.loads(event['Records'][0]['Sns']['Message'])
-              jira_webhook = os.environ['JIRA_Webhook']  # Retrieve the webhook URL from environment variable
-
-              url = jira_webhook
-              encoded_msg = json.dumps(sns_message).encode('utf-8')
-              resp = http.request('POST', url, body=encoded_msg, headers={'Content-Type': 'application/json'})
-
-              print({
-                  "message": "Done",
-                  "status_code": resp.status,
-                  "response": resp.data
-              })
-
-  CaLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/aws-cost-anomalies-jira-${AWS::StackName}'
-      RetentionInDays: 7
-
-  LambdaLogGroupPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: LambdaLogGroupPolicy
-      Roles:
-        - !Ref AwsCostAnomalyLambdaFunctionRole
-      PolicyDocument:
-        Statement:
+              - s3:ListBucket
+              - s3:PutObject
+              - s3:GetObject
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:s3:::${AwsCostAnomalyBucket}'
+              - !Sub 'arn:${AWS::Partition}:s3:::${AwsCostAnomalyBucket}/*'
           - Effect: Allow
             Action:
+              - logs:CreateLogGroup
               - logs:CreateLogStream
               - logs:PutLogEvents
-            Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/aws-cost-anomalies-jira-${AWS::StackName}:*'
-
-  AwsCostAnomalyLambdaFunctionSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Protocol: lambda
-      TopicArn: !Ref SnsTopicArn
-      Endpoint: !GetAtt AwsCostAnomalyLambdaFunction.Arn
-
-  SnsInvokePermission:
+              - logs:DescribeLogStreams
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-cost-explorer-cost-anomaaly-integration-function*'
+  LambdaSNSPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !GetAtt AwsCostAnomalyLambdaFunction.Arn
+      FunctionName: !GetAtt 'IntegrationLambdaFunction.Arn'
       Principal: sns.amazonaws.com
+      SourceArn: !Ref 'SnsTopicArn'
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref 'IntegrationLambdaFunction'
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref 'SnsTopicArn'
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: lambda
+      TopicArn: !Ref 'SnsTopicArn'
+      Endpoint: !GetAtt 'IntegrationLambdaFunction.Arn'
+Outputs:
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt 'IntegrationLambdaFunction.Arn'
+  LambdaFunctionName:
+    Description: Name of the Lambda function
+    Value: !Ref 'IntegrationLambdaFunction'
+
