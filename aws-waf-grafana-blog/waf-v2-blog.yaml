@@ -4,6 +4,13 @@ Description: AWS CloudFormation template for setting up resources for Centralize
 Resources:
   waflogsbucket:
     Type: AWS::S3::Bucket
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: 'The access is not enabled for anyone outside the bucket owner'
+          - id: W51
+            reason: 'Not using an identity other than the root user of the AWS account that owns the bucket (CFN user) and will only be accessed by the same account'
     Properties:
       BucketName: !Sub  'aws-waf-logs-${AWS::AccountId}-${AWS::Region}'
       AccessControl: Private
@@ -18,18 +25,26 @@ Resources:
             RestrictPublicBuckets : true
   FirehoseLogGroup:
     Type: AWS::Logs::LogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: 'By default, log group data is encrypted in CloudWatch Logs'
     Properties: 
-      LogGroupName: HealthEventsFirehoseLogs
+      LogGroupName: WAFEventsFirehoseLogs
+      RetentionInDays: 7
   FirehoseLogStream:      
     Type: AWS::Logs::LogStream
     Properties: 
       LogGroupName: !Ref FirehoseLogGroup
-      LogStreamName: HealthEventsFirehoStream 
+      LogStreamName: WAFEventsFirehoStream 
   LogDestinationKinesisFirehoseDeliveryStream:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       DeliveryStreamName: aws-waf-logs-kinesis-delivery-stream
       DeliveryStreamType: DirectPut
+      DeliveryStreamEncryptionConfigurationInput:
+        KeyType: AWS_OWNED_CMK
       S3DestinationConfiguration:
         BucketARN: !GetAtt waflogsbucket.Arn
         Prefix: "aws-waf-logs/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
