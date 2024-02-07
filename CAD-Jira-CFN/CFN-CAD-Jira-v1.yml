@@ -1,4 +1,3 @@
----
 AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS Cost Anomaly Notification Integration With Third Party Tools (JIRA & ServiceNow)
 Parameters:
@@ -13,55 +12,53 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.lambda_handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      FunctionName: !Sub
-        - aws-cost-anomaly-Integration-${Id}
-        - ID: !Select
-          - 0
-          - !Split
-            - '_'
-            - Ref 'AWS::Stackname'
+      Role: !GetAtt IntegrationLambdaExecutionRole.Arn
+      FunctionName: !Sub 'aws-cost-anomaly-integration-${AWS::StackName}'
       Code:
-        ZipFile:
-          Fn::Sub: |
-            import urllib3
-            import json
-            import os
-            import logging
-            Integration_URL = os.environment["IntegrationURL"]
-            def flattened_anomaly(json_data):
-                flattened_data = {}
-                print("array",flattened_data)
-                flattened_data = json.loads(json_data)
-                return flattened_data
+        ZipFile: |
+          import json
+          import logging
+          import urllib3
+          import os
 
-            def post_to_webhook(data):
-                http = urllib3.PoolManager()
-                webhook_url = 'Integration_URL'
-                headers = {"Content-Type": "application/json"}
-                data = json.dumps(data)
-                http.request("POST", webhook_url, headers=headers, body=data)
-                print("Data posted to webhook")
-                return
+          def flattened_anomaly(json_data):
+              # If the json_data is already a dictionary
+              return json_data
 
-            def lambda_handler(event, context):
-                sns_message = event["Records"][0]["Sns"]["Message"]
-                logging.info(event)
-                print(event)
-                flattened_data = flattened_anomaly(sns_message)
-                print(flattened_data)
-                post_to_webhook(flattened_data)
-                return
+          def post_to_webhook(data):
+              try:
+                  http = urllib3.PoolManager()
+                  webhook_url = os.environ["IntegrationURL"]
+                  headers = {"Content-Type": "application/json"}
+                  encoded_data = json.dumps(data).encode('utf-8')
+                  response = http.request("POST", webhook_url, headers=headers, body=encoded_data)
+                  logging.info(f"Data posted to webhook, status: {response.status}")
+              except Exception as e:
+                  logging.error(f"Failed to post data to webhook: {e}")
+
+          def lambda_handler(event, context):
+              logging.info(event)
+              try:
+                  # Extracting the SNS message
+                  sns_message = event["Records"][0]["Sns"]["Message"]
+                  # Checking if sns_message is a string to parse it
+                  if isinstance(sns_message, str):
+                      sns_message = json.loads(sns_message)
+                  # If sns_message is already a dictionary, use it directly
+                  flattened_data = flattened_anomaly(sns_message)
+                  post_to_webhook(flattened_data)
+              except Exception as e:
+                  logging.error(f"Error processing SNS message: {e}")
+                  raise e
       Runtime: python3.10
       Timeout: 60
-      MemorySize: 2688
+      MemorySize: 128
       Environment:
         Variables:
           IntegrationURL: !Ref 'IntegrationURL'
   IntegrationLambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: LambdaExecutionRole
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -70,68 +67,12 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueSerAWSLambdaBasicExecutionRole'
-      Policies:
-        - PolicyName: SNSPermission
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sns:Publish
-                Resource: !Ref 'SnsTopicArn'
-  CaLambdaLogGroup:
-        Type: AWS::Logs::LogGroup
-        Properties:
-          LogGroupName: !Sub '/aws/lambda/${IntegrationLambdaFunction}'
-          RetentionInDays: 7
-  CostAnomaliesLambdaFunctionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub '${AWS::StackName}-ce-Execute-Lambda'
-      AssumeRolePolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-  CaS3BucketAccessPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: Cost-Anomaly-S3BucketAccessPolicy
-      Roles:
-        - !Ref 'CostAnomaliesLambdaFunctionRole'
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Action:
-              - s3:ListBucket
-              - s3:PutObject
-              - s3:GetObject
-            Resource:
-              - !Sub 'arn:${AWS::Partition}:s3:::${AwsCostAnomalyBucket}'
-              - !Sub 'arn:${AWS::Partition}:s3:::${AwsCostAnomalyBucket}/*'
-          - Effect: Allow
-            Action:
-              - logs:CreateLogGroup
-              - logs:CreateLogStream
-              - logs:PutLogEvents
-              - logs:DescribeLogStreams
-            Resource:
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-cost-explorer-cost-anomaaly-integration-function*'
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
   LambdaSNSPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
       FunctionName: !GetAtt 'IntegrationLambdaFunction.Arn'
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref 'SnsTopicArn'
-  LambdaInvokePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref 'IntegrationLambdaFunction'
       Principal: sns.amazonaws.com
       SourceArn: !Ref 'SnsTopicArn'
   SnsSubscription:
@@ -147,4 +88,3 @@ Outputs:
   LambdaFunctionName:
     Description: Name of the Lambda function
     Value: !Ref 'IntegrationLambdaFunction'
-
