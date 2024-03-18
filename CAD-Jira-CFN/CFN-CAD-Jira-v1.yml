@@ -3,7 +3,7 @@ Description: AWS Cost Anomaly Notification Integration With Third Party Tools (J
 Parameters:
   SnsTopicArn:
     Type: String
-    Description: ARN of the SNS topic
+    Description: ARN of the Amazon SNS topic
   IntegrationURL:
     Type: String
     Description: Endpoint Integration URL
@@ -83,8 +83,8 @@ Resources:
       Endpoint: !GetAtt 'IntegrationLambdaFunction.Arn'
 Outputs:
   LambdaFunctionArn:
-    Description: ARN of the Lambda function
+    Description: ARN of the AWS Lambda function
     Value: !GetAtt 'IntegrationLambdaFunction.Arn'
   LambdaFunctionName:
-    Description: Name of the Lambda function
+    Description: Name of the AWS Lambda function
     Value: !Ref 'IntegrationLambdaFunction'
