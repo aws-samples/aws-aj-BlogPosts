@@ -4,9 +4,11 @@ Parameters:
   SnsTopicArn:
     Type: String
     Description: ARN of the Amazon SNS topic
+    AllowedPattern: '^arn:aws[a-z0-9\-]*:sns:[a-z0-9\-]+:\d{12}:([\w\-]{1,256})$'
   IntegrationURL:
     Type: String
     Description: Endpoint Integration URL
+    AllowedPattern: '^(http(s):\/\/.)[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$'
 Resources:
   IntegrationLambdaFunction:
     Type: AWS::Lambda::Function
@@ -28,19 +30,19 @@ Resources:
           def post_to_webhook(data):
               try:
                   http = urllib3.PoolManager()
-                  webhook_url = os.environ["IntegrationURL"]
-                  headers = {"Content-Type": "application/json"}
+                  webhook_url = os.environ['IntegrationURL']
+                  headers = {'Content-Type': 'application/json'}
                   encoded_data = json.dumps(data).encode('utf-8')
                   response = http.request("POST", webhook_url, headers=headers, body=encoded_data)
-                  logging.info(f"Data posted to webhook, status: {response.status}")
+                  logging.info(f'Data posted to webhook, status: {response.status}')
               except Exception as e:
-                  logging.error(f"Failed to post data to webhook: {e}")
+                  logging.error(f'Failed to post data to webhook: {e}')
 
           def lambda_handler(event, context):
               logging.info(event)
               try:
                   # Extracting the SNS message
-                  sns_message = event["Records"][0]["Sns"]["Message"]
+                  sns_message = event['Records'][0]['Sns']['Message']
                   # Checking if sns_message is a string to parse it
                   if isinstance(sns_message, str):
                       sns_message = json.loads(sns_message)
@@ -48,7 +50,7 @@ Resources:
                   flattened_data = flattened_anomaly(sns_message)
                   post_to_webhook(flattened_data)
               except Exception as e:
-                  logging.error(f"Error processing SNS message: {e}")
+                  logging.error(f'Error processing SNS message: {e}')
                   raise e
       Runtime: python3.10
       Timeout: 60
@@ -67,7 +69,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
   LambdaSNSPermission:
     Type: AWS::Lambda::Permission
     Properties:
