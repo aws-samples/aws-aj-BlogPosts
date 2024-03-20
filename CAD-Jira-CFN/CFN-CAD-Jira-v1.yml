@@ -1,3 +1,4 @@
+---
 AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS Cost Anomaly Notification Integration With Third Party Tools (JIRA & ServiceNow)
 Parameters:
