@@ -59,6 +59,11 @@ Resources:
       Environment:
         Variables:
           IntegrationURL: !Ref 'IntegrationURL'
+  IntegrationLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${IntegrationLambdaFunction}'
+      RetentionInDays: 60
   IntegrationLambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
