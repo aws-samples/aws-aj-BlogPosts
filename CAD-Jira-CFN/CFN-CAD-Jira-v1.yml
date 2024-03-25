@@ -28,33 +28,6 @@ Resources:
               # If the json_data is already a dictionary
               return json_data
 
-<<<<<<< HEAD
-          def post_to_webhook(data):
-              try:
-                  http = urllib3.PoolManager()
-                  webhook_url = os.environ["IntegrationURL"]
-                  headers = {"Content-Type": "application/json"}
-                  encoded_data = json.dumps(data).encode('utf-8')
-                  response = http.request("POST", webhook_url, headers=headers, body=encoded_data)
-                  logging.info(f"Data posted to webhook, status: {response.status}")
-              except Exception as e:
-                  logging.error(f"Failed to post data to webhook: {e}")
-
-          def lambda_handler(event, context):
-              logging.info(event)
-              try:
-                  # Extracting the SNS message
-                  sns_message = event["Records"][0]["Sns"]["Message"]
-                  # Checking if sns_message is a string to parse it
-                  if isinstance(sns_message, str):
-                      sns_message = json.loads(sns_message)
-                  # If sns_message is already a dictionary, use it directly
-                  flattened_data = flattened_anomaly(sns_message)
-                  post_to_webhook(flattened_data)
-              except Exception as e:
-                  logging.error(f"Error processing SNS message: {e}")
-                  raise e
-=======
           def post_to_webhook(data):
               try:
                   http = urllib3.PoolManager()
@@ -80,7 +53,6 @@ Resources:
               except Exception as e:
                   logging.error(f'Error processing SNS message: {e}')
                   raise e
->>>>>>> 910a3daa40883188a24f4c43bf321fa135548345
       Runtime: python3.10
       Timeout: 60
       MemorySize: 128
@@ -103,11 +75,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-<<<<<<< HEAD
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-=======
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
->>>>>>> 910a3daa40883188a24f4c43bf321fa135548345
   LambdaSNSPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -128,7 +96,3 @@ Outputs:
   LambdaFunctionName:
     Description: Name of the AWS Lambda function
     Value: !Ref 'IntegrationLambdaFunction'
-<<<<<<< HEAD
-=======
-
->>>>>>> 910a3daa40883188a24f4c43bf321fa135548345
