@@ -1,0 +1,22 @@
+(function process( /*RESTAPIRequest*/ request, /*RESTAPIResponse*/ response) {
+    var event = request.body.data;
+    var rootCauses = request.body.data.rootCauses;
+    for (var i = 0; i < rootCauses.length; i++) {
+        var element = rootCauses[i];
+    }
+    var inc = new GlideRecord('incident');
+    inc.initialize();
+    inc.short_description = "AWS Cost Anomaly";
+    inc.description = 
+        "AccountId:" + JSON.stringify(request.body.data.accountId) +
+        "\nService:" + JSON.stringify(request.body.data.rootCauses[0].service) +
+        "\nMax Daily Impact:" + JSON.stringify(request.body.data.impact.maxImpact) +
+        "\nTotal Impact:" + JSON.stringify(request.body.data.impact.totalImpact) +
+        "\nRegion:" + JSON.stringify(request.body.data.rootCauses.region) +
+        "\nRoot Cause:" + JSON.stringify(request.body.data.rootCauses[0].usageType) +
+        "\nAnomaly Detection URL:" + JSON.stringify(request.body.data.anomalyDetailsLink) +
+        "\nAnomalyStartDate:" + JSON.stringify(request.body.data.anomalyStartDate) +
+        "\nAnomalyEndDate:" + JSON.stringify(request.body.data.anomalyEndDate)
+    inc.insert();
+    response.setStatus(200);
+})(request, response)
