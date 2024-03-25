@@ -1,0 +1,15 @@
+Dear AWS Customer,
+
+Account Id: {{webhookData.accountId}}
+Account Name: {{webhookData.accountName}}
+
+You are receiving this alert because you asked us to provide you with a summary of unusual AWS usage patterns for accounts in your AWS organization with payer account id number above. Below is a list of anomalies that have been detected on  {{webhookData.anomalyStartDate}} with corresponding root cause(s).
+
+||Name||Cost Impact||Root Cause||Next Steps||
+|{{webhookData.rootCauses.service}}|Max Daily Impact: {{webhookData.impact.maxImpact}}
+Total Impact: {{webhookData.impact.totalImpact}}
+Total Actual Spend: {{webhookData.impact.totalActualSpend}}
+Total Expected Spend {{webhookData.impact.totalExpectedSpend}}|Account Id: {{webhookData.accountId}}
+Region: {{webhookData.rootCauses.region}}
+AWS Service: {{webhookData.rootCauses.service}}
+Usage Type: {{webhookData.rootCauses.usageType}}|[View In Anomaly Detection|{{webhookData.anomalyDetailsLink}}] |
