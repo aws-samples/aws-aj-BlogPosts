@@ -1,0 +1,98 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Cost Anomaly Notification Integration With Third Party Tools (JIRA & ServiceNow)
+Parameters:
+  SnsTopicArn:
+    Type: String
+    Description: ARN of the Amazon SNS topic
+    AllowedPattern: '^arn:aws[a-z0-9\-]*:sns:[a-z0-9\-]+:\d{12}:([\w\-]{1,256})$'
+  IntegrationURL:
+    Type: String
+    Description: Endpoint Integration URL
+    AllowedPattern: '^(http(s):\/\/.)[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$'
+Resources:
+  IntegrationLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt IntegrationLambdaExecutionRole.Arn
+      FunctionName: !Sub 'aws-cost-anomaly-integration-${AWS::StackName}'
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import urllib3
+          import os
+
+          def flattened_anomaly(json_data):
+              # If the json_data is already a dictionary
+              return json_data
+
+          def post_to_webhook(data):
+              try:
+                  http = urllib3.PoolManager()
+                  webhook_url = os.environ['IntegrationURL']
+                  headers = {'Content-Type': 'application/json'}
+                  encoded_data = json.dumps(data).encode('utf-8')
+                  response = http.request("POST", webhook_url, headers=headers, body=encoded_data)
+                  logging.info(f'Data posted to webhook, status: {response.status}')
+              except Exception as e:
+                  logging.error(f'Failed to post data to webhook: {e}')
+
+          def lambda_handler(event, context):
+              logging.info(event)
+              try:
+                  # Extracting the SNS message
+                  sns_message = event['Records'][0]['Sns']['Message']
+                  # Checking if sns_message is a string to parse it
+                  if isinstance(sns_message, str):
+                      sns_message = json.loads(sns_message)
+                  # If sns_message is already a dictionary, use it directly
+                  flattened_data = flattened_anomaly(sns_message)
+                  post_to_webhook(flattened_data)
+              except Exception as e:
+                  logging.error(f'Error processing SNS message: {e}')
+                  raise e
+      Runtime: python3.10
+      Timeout: 60
+      MemorySize: 128
+      Environment:
+        Variables:
+          IntegrationURL: !Ref 'IntegrationURL'
+  IntegrationLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${IntegrationLambdaFunction}'
+      RetentionInDays: 60
+  IntegrationLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  LambdaSNSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'IntegrationLambdaFunction.Arn'
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref 'SnsTopicArn'
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: lambda
+      TopicArn: !Ref 'SnsTopicArn'
+      Endpoint: !GetAtt 'IntegrationLambdaFunction.Arn'
+Outputs:
+  LambdaFunctionArn:
+    Description: ARN of the AWS Lambda function
+    Value: !GetAtt 'IntegrationLambdaFunction.Arn'
+  LambdaFunctionName:
+    Description: Name of the AWS Lambda function
+    Value: !Ref 'IntegrationLambdaFunction'
