@@ -1,0 +1,22 @@
+Generate network traffic from EC2 instance to produce Network Firewall Logs
+--------------------------------------------------------------------------- 
+Run the Ncat command on EC2 instance to generate network traffic
+Go to Bash Shell, run the following commands:
+bash
+Install Ncat
+sudo yum install -y nc
+
+Download TestMyNIDS package by using the following command:
+curl -sSL https://raw.githubusercontent.com/3CORESec/testmynids.org/master/tmNIDS -o /tmp/tmNIDS
+
+To add permissions, run:
+chmod +x /tmp/tmNIDS
+
+Use the following command to check the options:
+/tmp/tmNIDS -h
+
+Run the following command for 10 secs 
+/tmp/tmNIDS -99
+
+Stop with CTRL + C to prevent excessive logs and firewall cost
+CTRL + C
