@@ -1,0 +1,71 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2761
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica-Bold;\f1\froman\fcharset0 TimesNewRomanPSMT;\f2\fswiss\fcharset0 Helvetica;
+}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red11\green76\blue180;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c1961\c38824\c75686;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww16660\viewh10320\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\b\fs32 \cf0 \expnd0\expndtw0\kerning0
+Generate network traffic from EC2 instance to produce Network Firewall Logs
+\f1\b0 \
+\pard\pardeftab720\qj\partightenfactor0
+
+\f2 \cf0 \'a0
+\f1 \
+\pard\pardeftab720\li960\fi-960\partightenfactor0
+
+\f0\b \cf0 1.1
+\f1\b0\fs18\fsmilli9333 \'a0 
+\f0\b\fs32 Run the Ncat command on EC2 instance to generate network traffic
+\f2\b0 \
+\pard\pardeftab720\li1440\fi-1440\partightenfactor0
+\cf0 1.
+\f1\fs18\fsmilli9333 \'a0\'a0\'a0\'a0 
+\f2\fs32 Go to Bash Shell, run the following commands:\
+\pard\pardeftab720\li480\fi960\partightenfactor0
+\cf0 bash
+\f1 \
+\pard\pardeftab720\li1440\fi-1440\partightenfactor0
+
+\f2 \cf0 Install Ncat\
+\pard\pardeftab720\li480\fi960\partightenfactor0
+\cf0 sudo yum install -y nc
+\f1 \
+\pard\pardeftab720\li1440\fi-1440\partightenfactor0
+
+\f2 \cf0 2.
+\f1\fs18\fsmilli9333 \'a0\'a0\'a0\'a0 
+\f2\fs32 Download {\field{\*\fldinst{HYPERLINK "https://github.com/3CORESec/testmynids.org"}}{\fldrslt \cf3 \ul \ulc3 TestMyNIDS}} package by using the following command:\
+\pard\pardeftab720\li960\fi480\partightenfactor0
+\cf0 curl -sSL https://raw.githubusercontent.com/3CORESec/testmynids.org/master/tmNIDS -o /tmp/tmNIDS
+\f1 \
+\pard\pardeftab720\li1440\fi-1440\partightenfactor0
+
+\f2 \cf0 3.
+\f1\fs18\fsmilli9333 \'a0\'a0\'a0\'a0 
+\f2\fs32 To add permissions, run:\
+\pard\pardeftab720\li480\fi960\partightenfactor0
+\cf0 chmod +x /tmp/tmNIDS
+\f1 \
+\pard\pardeftab720\li1440\fi-1440\partightenfactor0
+
+\f2 \cf0 4.
+\f1\fs18\fsmilli9333 \'a0\'a0\'a0\'a0 
+\f2\fs32 Use the following command to check the options:\
+\pard\pardeftab720\li480\fi960\partightenfactor0
+\cf0 /tmp/tmNIDS -h
+\f1 \
+\pard\pardeftab720\li1440\fi-1440\partightenfactor0
+
+\f2 \cf0 5.
+\f1\fs18\fsmilli9333 \'a0\'a0\'a0\'a0 
+\f2\fs32 Run the following command for 10 secs \
+/tmp/tmNIDS -99
+\f1 \
+
+\f2 6.  Stop with CTRL + C to prevent excessive logs and firewall cost\
+CTRL + C
+\f1 \
+}
