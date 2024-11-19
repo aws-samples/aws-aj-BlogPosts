@@ -1,3 +1,4 @@
+---
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "AWS Network Firewall single AZ Deployment using CloudFormation."
 
