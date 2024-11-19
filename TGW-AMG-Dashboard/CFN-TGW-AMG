@@ -1,0 +1,97 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template for setting up resources for Centralized Logging for AWS Transit Gateway
+Resources:
+  tgwlogsbucket:
+    Type: AWS::S3::Bucket
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: The access is not enabled for anyone outside the bucket owner
+          - id: W51
+            reason: Not using an identity other than the root user of the AWS account that
+              owns the bucket (CFN user) and will only be accessed by the same
+              account
+    Properties:
+      BucketName: !Sub aws-tgw-logs-${AWS::AccountId}-${AWS::Region}
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  tgwDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: tgwlogsdb
+  tgwlogsGlueCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: crawl-aws-tgw-logs
+      Role: !Ref tgwlogsGlueCrawlerRole
+      DatabaseName: !Ref tgwDatabase
+      Targets:
+        S3Targets:
+          - Path: !Sub s3://${tgwlogsbucket}/AWSLogs/
+      Schedule:
+        ScheduleExpression: cron(0 */1 * * ? *)
+  tgwlogsGlueCrawlerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSGlueServiceRole
+      Path: /
+      Policies:
+        - PolicyName: tgw-GlueCrawlerRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                Resource:
+                  - !Sub arn:aws:s3:::${tgwlogsbucket}*
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource:
+                  - !Sub arn:aws:s3:::${tgwlogsbucket}*
+  tgwlogsathenaworkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: tgw-logs-athena
+      State: ENABLED
+      Tags:
+        - Key: GrafanaDataSource
+          Value: 'true'
+  tgwlogsAthenaView:
+    Type: AWS::Athena::NamedQuery
+    Properties:
+      Name: aws_tgw_centralized_logging
+      Description: AWS tgw Logging dashboard summary view
+      Database: !Ref tgwDatabase
+      QueryString: |
+        CREATE OR REPLACE VIEW "tgwlogs" AS  SELECT DISTINCT * FROM "AwsDataCatalog"."tgwlogsdb"."awslogs"
+      WorkGroup: !Ref tgwlogsathenaworkgroup
+Outputs:
+  # Output of Amazon Kinesis Data Stream
+  S3tgwlogsbucket:
+    Value: !Ref tgwlogsbucket
