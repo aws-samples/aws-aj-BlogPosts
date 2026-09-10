@@ -1,0 +1,133 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/Lambda", "Invocations", { "stat": "Sum" } ],
+          [ "...", { "stat": "Sum" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda Invocations",
+        "period": 300
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/Lambda", "Duration", { "stat": "Average" } ],
+          [ "...", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda Duration (ms)",
+        "period": 300
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/Lambda", "Errors", { "stat": "Sum", "color": "#d62728" } ],
+          [ "...", { "stat": "Sum", "color": "#ff7f0e" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda Errors",
+        "period": 300
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 6
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/States", "ExecutionsFailed", { "stat": "Sum", "color": "#d62728" } ],
+          [ ".", "ExecutionsSucceeded", { "stat": "Sum", "color": "#2ca02c" } ],
+          [ ".", "ExecutionsStarted", { "stat": "Sum", "color": "#1f77b4" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Step Functions Executions",
+        "period": 300
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 6
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\n| fields @timestamp, @message\n| filter @message like /repositories/\n| parse @message /(?<platform>\\w+): Found (?<count>\\d+) repositories/\n| stats latest(count) as RepositoryCount by platform\n| sort @timestamp desc",
+        "region": "us-east-1",
+        "stacked": false,
+        "title": "Repository Count by Platform",
+        "view": "table"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 12
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-metrics-collector'\n| fields @timestamp, @message\n| filter @message like /Metrics stored/\n| stats count() as CollectionRuns by bin(5m)",
+        "region": "us-east-1",
+        "stacked": false,
+        "title": "Successful Collections (5min intervals)",
+        "view": "timeSeries"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 12
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\n| fields @timestamp, @message\n| filter @message like /Load type/\n| parse @message /Load type: (?<loadType>\\w+), Changes: (?<hasChanges>\\w+), Repos: (?<repoCount>\\d+)/\n| stats count() by loadType",
+        "region": "us-east-1",
+        "stacked": false,
+        "title": "Load Type Distribution",
+        "view": "pie"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 18
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\nSOURCE '/aws/lambda/github-metrics-collector'\n| fields @timestamp, @message\n| filter @message like /Error/\n| sort @timestamp desc\n| limit 20",
+        "region": "us-east-1",
+        "stacked": false,
+        "title": "Recent Errors",
+        "view": "table"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 18
+    }
+  ]
+}

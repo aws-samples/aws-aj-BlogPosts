@@ -1,0 +1,590 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'GitHub Metrics Collection - Enterprise Analytics Solution'
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: (REQUIRED) S3 bucket name for storing metrics data, e.g. git-dashboard-metrics-<account-id>-<region>
+    AllowedPattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'
+  ScheduleExpression:
+    Type: String
+    Default: 'rate(5 minutes)'
+    Description: EventBridge schedule expression (e.g., rate(10 minutes), rate(1 hour))
+  ChunkingThreshold:
+    Type: Number
+    Default: 20
+    Description: Repository count threshold for enabling chunking strategy
+  GitHubTokenSecretArn:
+    Type: String
+    Default: ''
+    Description: ARN of an EXISTING GitHub token secret. Leave empty to have this template create the secret (git-dashboard/github-token) with a placeholder value.
+  GitLabTokenSecretArn:
+    Type: String
+    Default: ''
+    Description: ARN of an EXISTING GitLab token secret. Leave empty to have this template create the secret (git-dashboard/gitlab-token) with a placeholder value.
+  GitLabBaseUrl:
+    Type: String
+    Default: 'https://gitlab.com'
+    Description: 'Base URL of your GitLab instance (e.g. https://gitlab.com or a self-managed URL like https://gitlab.example.com)'
+    AllowedPattern: '^https://[a-zA-Z0-9.-]+(:[0-9]+)?$'
+  EnabledPlatforms:
+    Type: String
+    Default: 'github,gitlab'
+    Description: 'Comma-separated list of platforms to enable: github, gitlab, or both (e.g., "github" or "github,gitlab")'
+    AllowedPattern: '^(github|gitlab|github,gitlab|gitlab,github)$'
+
+Conditions:
+  CreateGitHubSecret: !Equals [!Ref GitHubTokenSecretArn, '']
+  CreateGitLabSecret: !Equals [!Ref GitLabTokenSecretArn, '']
+
+Resources:
+  # Git token secrets - created here (with placeholders) unless the ARN of an
+  # existing secret is supplied as a parameter. Update the placeholder value
+  # after deployment with your real token.
+  GitHubTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Condition: CreateGitHubSecret
+    Properties:
+      Name: git-dashboard/github-token
+      Description: 'GitHub Personal Access Token (replace the placeholder value!)'
+      SecretString: 'PLACEHOLDER_UPDATE_ME'
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  GitLabTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Condition: CreateGitLabSecret
+    Properties:
+      Name: git-dashboard/gitlab-token
+      Description: 'GitLab Personal Access Token (replace the placeholder value!)'
+      SecretString: 'PLACEHOLDER_UPDATE_ME'
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  # S3 bucket for access logs (CSR-009)
+  AccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${BucketName}-access-logs'
+      AccessControl: LogDeliveryWrite
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldLogs
+            Status: Enabled
+            ExpirationInDays: 90
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  # S3 Bucket for metrics storage
+  MetricsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLogsBucket
+        LogFilePrefix: metrics-bucket-logs/
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  # Restrictive bucket policy: deny non-TLS access (CSR-009)
+  MetricsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MetricsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt MetricsBucket.Arn
+              - !Sub '${MetricsBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  # GitHub Token Secret (using existing secret)
+  # GitHubTokenSecret:
+  #   Type: AWS::SecretsManager::Secret
+  #   Properties:
+  #     Name: github-token
+  #     Description: GitHub Personal Access Token
+  #     SecretString: 'REPLACE_WITH_YOUR_TOKEN'
+  #     Tags:
+  #       - Key: Project
+  #         Value: github-grafana
+
+  # Customer-managed KMS key for Lambda environment variable encryption (CSR-006)
+  LambdaEnvKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: CMK for encrypting Lambda environment variables (github-metrics)
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAccountAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  LambdaEnvKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/github-metrics-lambda-env
+      TargetKeyId: !Ref LambdaEnvKmsKey
+
+  # Dead Letter Queue for failed Lambda invocations (CSR-007)
+  LambdaDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: github-metrics-lambda-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      SqsManagedSseEnabled: true
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  # IAM Role for Lambda functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: github-metrics-lambda-execution-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: GitHubMetricsLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource: 
+                  - !Sub '${MetricsBucket.Arn}/*'
+                  - !GetAtt MetricsBucket.Arn
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !If [CreateGitHubSecret, !Ref GitHubTokenSecret, !Ref GitHubTokenSecretArn]
+                  - !If [CreateGitLabSecret, !Ref GitLabTokenSecret, !Ref GitLabTokenSecretArn]
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                  - states:ListExecutions
+                # Scoped by name to avoid a circular dependency with the
+                # state machine (which references the Lambdas using this role)
+                Resource: !Sub 'arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:github-metrics-workflow'
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt LambdaDeadLetterQueue.Arn
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                Resource: !GetAtt LambdaEnvKmsKey.Arn
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  # Change Detector Lambda
+  ChangeDetectorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: github-change-detector
+      Runtime: python3.14
+      Handler: detector.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      KmsKeyArn: !GetAtt LambdaEnvKmsKey.Arn
+      DeadLetterConfig:
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      ReservedConcurrentExecutions: 2
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {"statusCode": 200, "body": "Placeholder - will be updated by deployment script"}
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref BucketName
+          GITHUB_TOKEN_SECRET_ARN: !If [CreateGitHubSecret, !Ref GitHubTokenSecret, !Ref GitHubTokenSecretArn]
+          GITLAB_TOKEN_SECRET_ARN: !If [CreateGitLabSecret, !Ref GitLabTokenSecret, !Ref GitLabTokenSecretArn]
+          GITLAB_BASE_URL: !Ref GitLabBaseUrl
+          ENABLED_PLATFORMS: !Ref EnabledPlatforms
+          CHUNKING_THRESHOLD: !Ref ChunkingThreshold
+          STATE_MACHINE_ARN: !Sub 'arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:github-metrics-workflow'
+      MemorySize: 256
+      Timeout: 60
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  # Metrics Collector Lambda
+  MetricsCollectorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: github-metrics-collector
+      Runtime: python3.14
+      Handler: collector.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      KmsKeyArn: !GetAtt LambdaEnvKmsKey.Arn
+      DeadLetterConfig:
+        TargetArn: !GetAtt LambdaDeadLetterQueue.Arn
+      ReservedConcurrentExecutions: 6
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {"statusCode": 200, "body": "Placeholder - will be updated by deployment script"}
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref BucketName
+          GITHUB_TOKEN_SECRET_ARN: !If [CreateGitHubSecret, !Ref GitHubTokenSecret, !Ref GitHubTokenSecretArn]
+          GITLAB_TOKEN_SECRET_ARN: !If [CreateGitLabSecret, !Ref GitLabTokenSecret, !Ref GitLabTokenSecretArn]
+          GITLAB_BASE_URL: !Ref GitLabBaseUrl
+          ENABLED_PLATFORMS: !Ref EnabledPlatforms
+          CHUNKING_THRESHOLD: !Ref ChunkingThreshold
+      MemorySize: 1024
+      Timeout: 900
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  # Step Functions Role
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: github-metrics-stepfunctions-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsLambdaInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt ChangeDetectorLambda.Arn
+                  - !GetAtt MetricsCollectorLambda.Arn
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  # Step Functions State Machine
+  GitHubMetricsWorkflow:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: github-metrics-workflow
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      Tags:
+        - Key: Project
+          Value: github-grafana
+      DefinitionString: !Sub |
+        {
+          "Comment": "GitHub Metrics Collection Workflow with Chunking Support",
+          "StartAt": "DetectChanges",
+          "States": {
+            "DetectChanges": {
+              "Type": "Task",
+              "Resource": "${ChangeDetectorLambda.Arn}",
+              "Retry": [
+                {
+                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.error",
+                  "Next": "WorkflowFailed"
+                }
+              ],
+              "Next": "CheckLoadType"
+            },
+            "CheckLoadType": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.loadType",
+                  "StringEquals": "full",
+                  "Next": "CheckChunkingRequired"
+                },
+                {
+                  "And": [
+                    {
+                      "Variable": "$.loadType",
+                      "StringEquals": "incremental"
+                    },
+                    {
+                      "Variable": "$.hasChanges",
+                      "BooleanEquals": true
+                    }
+                  ],
+                  "Next": "CheckChunkingRequired"
+                }
+              ],
+              "Default": "NoChangesDetected"
+            },
+            "CheckChunkingRequired": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.requiresChunking",
+                  "BooleanEquals": true,
+                  "Next": "ProcessWithChunking"
+                }
+              ],
+              "Default": "CollectMetrics"
+            },
+            "ProcessWithChunking": {
+              "Type": "Map",
+              "ItemsPath": "$.chunks",
+              "MaxConcurrency": 5,
+              "Iterator": {
+                "StartAt": "ProcessChunk",
+                "States": {
+                  "ProcessChunk": {
+                    "Type": "Task",
+                    "Resource": "${MetricsCollectorLambda.Arn}",
+                    "Parameters": {
+                      "action": "process_chunk",
+                      "chunk.$": "$",
+                      "loadType.$": "$.loadType"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.error",
+                  "Next": "WorkflowFailed"
+                }
+              ],
+              "Next": "AggregateResults"
+            },
+            "AggregateResults": {
+              "Type": "Task",
+              "Resource": "${MetricsCollectorLambda.Arn}",
+              "Parameters": {
+                "action": "aggregate_results",
+                "chunkResults.$": "$"
+              },
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.error",
+                  "Next": "WorkflowFailed"
+                }
+              ],
+              "End": true
+            },
+            "CollectMetrics": {
+              "Type": "Task",
+              "Resource": "${MetricsCollectorLambda.Arn}",
+              "Parameters": {
+                "action": "collect_all",
+                "loadType.$": "$.loadType"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.error",
+                  "Next": "WorkflowFailed"
+                }
+              ],
+              "End": true
+            },
+            "WorkflowFailed": {
+              "Type": "Fail",
+              "Error": "MetricsCollectionFailed",
+              "Cause": "A workflow step failed after retries. Check the Lambda logs and the DLQ."
+            },
+            "NoChangesDetected": {
+              "Type": "Pass",
+              "Result": {
+                "message": "No changes detected, skipping collection",
+                "action": "skipped"
+              },
+              "End": true
+            }
+          }
+        }
+
+  # EventBridge Rule with configurable schedule
+  GitHubMetricsScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: github-metrics-collection-schedule
+      Description: "Scheduled trigger for GitHub metrics collection workflow"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Tags:
+        - Key: Project
+          Value: github-grafana
+      Targets:
+        - Arn: !Ref GitHubMetricsWorkflow
+          Id: "GitHubMetricsWorkflowTarget"
+          RoleArn: !GetAtt EventBridgeRole.Arn
+
+  # Alerting: SNS topic + alarms so failures are visible (subscribe via console/CLI)
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: github-metrics-alerts
+      KmsMasterKeyId: alias/aws/sns
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+  DlqMessagesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: github-metrics-dlq-messages
+      AlarmDescription: A Lambda invocation failed and landed in the DLQ
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt LambdaDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+
+  WorkflowFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: github-metrics-workflow-failed
+      AlarmDescription: A Step Functions execution failed
+      Namespace: AWS/States
+      MetricName: ExecutionsFailed
+      Dimensions:
+        - Name: StateMachineArn
+          Value: !Ref GitHubMetricsWorkflow
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+
+  # EventBridge Role
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: github-metrics-eventbridge-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EventBridgeStepFunctionsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !Ref GitHubMetricsWorkflow
+      Tags:
+        - Key: Project
+          Value: github-grafana
+
+Outputs:
+  BucketName:
+    Description: S3 bucket for metrics storage
+    Value: !Ref MetricsBucket
+  
+  WorkflowArn:
+    Description: Step Functions workflow ARN
+    Value: !Ref GitHubMetricsWorkflow
+  
+  SecretArn:
+    Description: GitHub token secret ARN
+    Value: !If [CreateGitHubSecret, !Ref GitHubTokenSecret, !Ref GitHubTokenSecretArn]
+    
+  ScheduleRuleArn:
+    Description: EventBridge schedule rule ARN
+    Value: !GetAtt GitHubMetricsScheduleRule.Arn
+    
+  ScheduleRuleName:
+    Description: EventBridge schedule rule name
+    Value: !Ref GitHubMetricsScheduleRule

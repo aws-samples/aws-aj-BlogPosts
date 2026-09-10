@@ -1,0 +1,5 @@
+test*.json
+last_check.json
+load_metadata.json
+.DS_Store
+*.png

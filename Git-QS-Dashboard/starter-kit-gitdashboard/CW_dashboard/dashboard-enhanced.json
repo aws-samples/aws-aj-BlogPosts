@@ -1,0 +1,286 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalRepositories", { "stat": "Average", "color": "#1f77b4" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Repositories",
+        "period": 300
+      },
+      "width": 6,
+      "height": 3,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalCommits", { "stat": "Average", "color": "#2ca02c" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Commits",
+        "period": 300
+      },
+      "width": 6,
+      "height": 3,
+      "x": 6,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalPullRequests", { "stat": "Average", "color": "#ff7f0e" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Pull Requests",
+        "period": 300
+      },
+      "width": 6,
+      "height": 3,
+      "x": 12,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalIssues", { "stat": "Average", "color": "#d62728" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Issues",
+        "period": 300
+      },
+      "width": 6,
+      "height": 3,
+      "x": 18,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalRepositories", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Repository Count Over Time",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 3
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalCommits", { "stat": "Average", "color": "#2ca02c" } ],
+          [ ".", "TotalPullRequests", { "stat": "Average", "color": "#ff7f0e" } ],
+          [ ".", "TotalIssues", { "stat": "Average", "color": "#d62728" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Activity Metrics Over Time",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 3
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "GitHubRepositories", { "stat": "Average", "label": "GitHub", "color": "#1f77b4" } ],
+          [ ".", "GitLabRepositories", { "stat": "Average", "label": "GitLab", "color": "#ff7f0e" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Repositories by Platform",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 9
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalStars", { "stat": "Average", "color": "#ffbb78" } ],
+          [ ".", "TotalForks", { "stat": "Average", "color": "#98df8a" } ],
+          [ ".", "TotalContributors", { "stat": "Average", "color": "#c5b0d5" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Engagement Metrics",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 9
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\n| fields @timestamp, @message\n| filter @message like /repositories/\n| parse @message /(?<platform>\\w+): Found (?<count>\\d+) repositories/\n| stats latest(count) as RepositoryCount by platform",
+        "region": "us-east-1",
+        "title": "Repository Count by Platform",
+        "view": "table"
+      },
+      "width": 8,
+      "height": 6,
+      "x": 0,
+      "y": 15
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\n| fields @timestamp, @message\n| filter @message like /Load type/\n| parse @message /Load type: (?<loadType>\\w+)/\n| stats count() as Count by loadType",
+        "region": "us-east-1",
+        "title": "Load Type Distribution",
+        "view": "pie"
+      },
+      "width": 8,
+      "height": 6,
+      "x": 8,
+      "y": 15
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-metrics-collector'\n| fields @timestamp, @message\n| filter @message like /Metrics stored/\n| stats count() as SuccessfulRuns by bin(10m)",
+        "region": "us-east-1",
+        "title": "Collection Success Rate",
+        "view": "timeSeries"
+      },
+      "width": 8,
+      "height": 6,
+      "x": 16,
+      "y": 15
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/Lambda", "Invocations", { "stat": "Sum", "label": "Detector" } ],
+          [ "...", { "stat": "Sum", "label": "Collector" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda Invocations",
+        "period": 300
+      },
+      "width": 8,
+      "height": 6,
+      "x": 0,
+      "y": 21
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/Lambda", "Duration", { "stat": "Average" } ],
+          [ "...", { "stat": "p99" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda Duration",
+        "period": 300
+      },
+      "width": 8,
+      "height": 6,
+      "x": 8,
+      "y": 21
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/Lambda", "Errors", { "stat": "Sum", "color": "#d62728" } ],
+          [ ".", "Throttles", { "stat": "Sum", "color": "#ff7f0e" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda Errors & Throttles",
+        "period": 300
+      },
+      "width": 8,
+      "height": 6,
+      "x": 16,
+      "y": 21
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/States", "ExecutionsStarted", { "stat": "Sum", "color": "#1f77b4" } ],
+          [ ".", "ExecutionsSucceeded", { "stat": "Sum", "color": "#2ca02c" } ],
+          [ ".", "ExecutionsFailed", { "stat": "Sum", "color": "#d62728" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Step Functions Executions",
+        "period": 300
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 27
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\nSOURCE '/aws/lambda/github-metrics-collector'\n| fields @timestamp, @message\n| filter @message like /Error/ or @message like /Exception/\n| sort @timestamp desc\n| limit 20",
+        "region": "us-east-1",
+        "title": "Recent Errors",
+        "view": "table"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 27
+    }
+  ]
+}

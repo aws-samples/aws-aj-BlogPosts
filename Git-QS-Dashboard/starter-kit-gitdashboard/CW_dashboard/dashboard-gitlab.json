@@ -1,0 +1,138 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Summary", "TotalUsers" ],
+          [ ".", "TotalRepositories" ],
+          [ ".", "TotalCommits" ],
+          [ ".", "TotalPullRequests" ],
+          [ ".", "TotalIssues" ],
+          [ ".", "TotalTags" ],
+          [ ".", "TotalContributors" ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "GitLab - Summary Metrics",
+        "period": 300
+      },
+      "width": 24,
+      "height": 4,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Summary", "TotalPullRequests", { "stat": "Average", "label": "Total MRs" } ],
+          [ ".", "EstimatedPRClosed", { "stat": "Average", "label": "Estimated Closed" } ],
+          [ ".", "EstimatedPRPending", { "stat": "Average", "label": "Estimated Pending" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "GitLab - Merge Request Trend",
+        "period": 300
+      },
+      "width": 8,
+      "height": 6,
+      "x": 0,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Summary", "TotalCommits", { "stat": "Average", "label": "Total Commits" } ],
+          [ ".", "TotalContributors", { "stat": "Average", "label": "Total Contributors" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "GitLab - Development Activity",
+        "period": 300
+      },
+      "width": 8,
+      "height": 6,
+      "x": 8,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Summary", "ActiveRepositories", { "stat": "Average", "label": "Active Repos" } ],
+          [ ".", "TotalBranches", { "stat": "Average", "label": "Total Branches" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "GitLab - Repository Activity",
+        "period": 300
+      },
+      "width": 8,
+      "height": 6,
+      "x": 16,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repositories", "Commits", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "GitLab - Repository-wise Commits",
+        "period": 300
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 10
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repositories", "PullRequests", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "GitLab - Repository-wise Merge Requests",
+        "period": 300
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 10
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\n| fields @timestamp, @message\n| filter @message like /gitlab/\n| parse @message /(?<platform>\\w+): Found (?<count>\\d+) repositories/\n| stats latest(count) as RepositoryCount by platform",
+        "region": "us-east-1",
+        "title": "GitLab - Collection Status",
+        "view": "table"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 16
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-metrics-collector'\n| fields @timestamp, @message\n| filter @message like /GitLab/\n| stats count() as CollectionRuns by bin(10m)",
+        "region": "us-east-1",
+        "title": "GitLab - Collection Success Rate",
+        "view": "timeSeries"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 16
+    }
+  ]
+}

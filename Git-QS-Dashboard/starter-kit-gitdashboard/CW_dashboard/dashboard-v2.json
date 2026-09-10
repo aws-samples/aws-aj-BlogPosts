@@ -1,0 +1,162 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Summary", "TotalUsers" ],
+          [ ".", "TotalRepositories" ],
+          [ ".", "TotalCommits" ],
+          [ ".", "TotalPullRequests" ],
+          [ ".", "TotalIssues" ],
+          [ ".", "TotalTags" ],
+          [ ".", "TotalContributors" ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Summary - All Metrics",
+        "period": 300
+      },
+      "width": 24,
+      "height": 4,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repositories", "Commits", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Repository-wise: Commits",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repositories", "PullRequests", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Repository-wise: Pull Requests",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repositories", "Issues", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Repository-wise: Issues",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 8,
+      "height": 6,
+      "x": 0,
+      "y": 10
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repositories", "Tags", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Repository-wise: Tags",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 8,
+      "height": 6,
+      "x": 8,
+      "y": 10
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repositories", "Contributors", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Repository-wise: Contributors",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 8,
+      "height": 6,
+      "x": 16,
+      "y": 10
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\n| fields @timestamp, @message\n| filter @message like /repositories/\n| parse @message /(?<platform>\\w+): Found (?<count>\\d+) repositories/\n| stats latest(count) as RepositoryCount by platform",
+        "region": "us-east-1",
+        "title": "Collection Status",
+        "view": "table"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 16
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-metrics-collector'\n| fields @timestamp, @message\n| filter @message like /Metrics stored/\n| stats count() as SuccessfulRuns by bin(10m)",
+        "region": "us-east-1",
+        "title": "Collection Success Rate",
+        "view": "timeSeries"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 16
+    }
+  ]
+}

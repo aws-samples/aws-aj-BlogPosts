@@ -1,0 +1,4 @@
+name,url,commits,pullRequests,issues,tags,contributors
+example-org/sample-web-app,https://github.com/example-org/sample-web-app,87,10,6,3,4
+example-org/sample-infra,https://github.com/example-org/sample-infra,29,3,2,1,2
+example-group/sample-service,https://gitlab.com/example-group/sample-service,12,1,1,1,1

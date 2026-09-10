@@ -1,0 +1,233 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalUsers", { "stat": "Average" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Users",
+        "period": 300
+      },
+      "width": 4,
+      "height": 4,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalRepositories", { "stat": "Average" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Repositories",
+        "period": 300
+      },
+      "width": 4,
+      "height": 4,
+      "x": 4,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalCommits", { "stat": "Average" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Commits",
+        "period": 300
+      },
+      "width": 4,
+      "height": 4,
+      "x": 8,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalPullRequests", { "stat": "Average" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Pull Requests",
+        "period": 300
+      },
+      "width": 4,
+      "height": 4,
+      "x": 12,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalIssues", { "stat": "Average" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Issues",
+        "period": 300
+      },
+      "width": 4,
+      "height": 4,
+      "x": 16,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalContributors", { "stat": "Average" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Contributors",
+        "period": 300
+      },
+      "width": 4,
+      "height": 4,
+      "x": 20,
+      "y": 0
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-metrics-collector'\n| fields @timestamp\n| stats count() as TotalRepositories",
+        "region": "us-east-1",
+        "title": "Repository-wise Details",
+        "view": "table"
+      },
+      "width": 8,
+      "height": 6,
+      "x": 0,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repos", "HighestContributor", { "stat": "Maximum" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Highest Contributor",
+        "period": 300
+      },
+      "width": 5,
+      "height": 3,
+      "x": 8,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repos", "EstimatedBranches", { "stat": "Sum" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Estimated Branches",
+        "period": 300
+      },
+      "width": 5,
+      "height": 3,
+      "x": 13,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard/Repos", "TotalTags", { "stat": "Sum" } ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Total Tags",
+        "period": 300
+      },
+      "width": 6,
+      "height": 3,
+      "x": 18,
+      "y": 4
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalRepositories", { "stat": "Average" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Repo Activity - Total Repos",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 10
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "GitDashboard", "TotalCommits", { "stat": "Average", "label": "Commits" } ],
+          [ ".", "TotalPullRequests", { "stat": "Average", "label": "Pull Requests" } ],
+          [ ".", "TotalIssues", { "stat": "Average", "label": "Issues" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Development Activity",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 10
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-metrics-collector'\n| fields @timestamp, @message\n| filter @message like /Processing/\n| parse @message /Processing (?<count>\\d+) repositories/\n| stats latest(count) as RepositoryCount",
+        "region": "us-east-1",
+        "title": "Repository Processing Stats",
+        "view": "table"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 16
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/github-change-detector'\n| fields @timestamp, @message\n| filter @message like /Load type/\n| parse @message /Load type: (?<loadType>\\w+), Changes: (?<hasChanges>\\w+), Repos: (?<repoCount>\\d+)/\n| stats count() by loadType",
+        "region": "us-east-1",
+        "title": "Load Type Distribution",
+        "view": "pie"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 16
+    }
+  ]
+}

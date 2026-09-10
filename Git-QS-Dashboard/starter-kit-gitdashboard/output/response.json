@@ -1,0 +1,68 @@
+{
+  "commit": 128,
+  "tag": 5,
+  "pullRequest": 14,
+  "repositoryCount": 3,
+  "issues": 9,
+  "lastUpdated": "2025-01-01T00:00:00.000000",
+  "incrementalChanges": {
+    "commits_added": 0,
+    "tags_added": 0,
+    "prs_added": 0,
+    "issues_added": 0,
+    "repos_added": 0
+  },
+  "repositories": [
+    {
+      "platform": "github",
+      "name": "example-org/sample-web-app",
+      "url": "https://github.com/example-org/sample-web-app",
+      "description": "Synthetic example repository (sample data)",
+      "language": "Python",
+      "stars": 12,
+      "forks": 3,
+      "created_at": "2024-01-15T09:00:00Z",
+      "updated_at": "2024-12-20T17:30:00Z",
+      "private": false,
+      "commits": 87,
+      "pullRequests": 10,
+      "issues": 6,
+      "tags": 3,
+      "contributors": 4
+    },
+    {
+      "platform": "github",
+      "name": "example-org/sample-infra",
+      "url": "https://github.com/example-org/sample-infra",
+      "description": "Synthetic example repository (sample data)",
+      "language": "HCL",
+      "stars": 5,
+      "forks": 1,
+      "created_at": "2024-03-02T11:00:00Z",
+      "updated_at": "2024-11-10T08:45:00Z",
+      "private": false,
+      "commits": 29,
+      "pullRequests": 3,
+      "issues": 2,
+      "tags": 1,
+      "contributors": 2
+    },
+    {
+      "platform": "gitlab",
+      "name": "example-group/sample-service",
+      "url": "https://gitlab.com/example-group/sample-service",
+      "description": "Synthetic example repository (sample data)",
+      "language": "Go",
+      "stars": 2,
+      "forks": 0,
+      "created_at": "2024-06-20T14:00:00Z",
+      "updated_at": "2024-12-01T12:15:00Z",
+      "private": false,
+      "commits": 12,
+      "pullRequests": 1,
+      "issues": 1,
+      "tags": 1,
+      "contributors": 1
+    }
+  ]
+}
