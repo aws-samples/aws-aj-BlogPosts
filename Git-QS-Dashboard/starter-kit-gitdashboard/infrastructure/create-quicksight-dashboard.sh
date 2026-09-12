@@ -2,11 +2,56 @@
 # create-quicksight-dashboard.sh - Recreates the Development Portfolio Health
 # Dashboard in Amazon QuickSight, backed by the metrics this solution writes to S3.
 #
-# Prerequisites: an active QuickSight subscription in this account/region, and
-# the metrics pipeline already deployed (so response.json/csv exist in S3).
+# This script is self-contained: it derives the aggregate CSV and generates the
+# QuickSight manifest itself, so neither needs to be pre-created.
+#
+# Prerequisites: an active QuickSight subscription in this account/region (with at
+# least one user), and the metrics pipeline already run (so an aggregate
+# response.json exists in S3).
+#
+# Configuration:
+#   ACCOUNT_ID              - Auto-detected via `aws sts get-caller-identity`.
+#                             It is NOT set manually.
+#   DATA_SOURCE_S3_BUCKET   - REQUIRED. The metrics bucket, following the naming
+#                             pattern git-dashboard-metrics-<account-id>-<region>.
+#   DATA_SOURCE_MANIFEST_KEY- Optional, defaults to manifest.json (overridable).
+#                             This script GENERATES and uploads the manifest
+#                             itself; there is no need to pre-create it.
+#   AGGREGATE_CSV_KEY        - Optional, defaults to output/quicksight/aggregate.csv.
+#                             The script derives a single-row aggregate CSV from
+#                             the pipeline's output/response.json and uploads it
+#                             to this key (never touching the per-repo response.csv).
 #
 # Usage:
 #   REGION=<region> DATA_SOURCE_S3_BUCKET=<your-metrics-bucket> ./create-quicksight-dashboard.sh
+#
+# ---------------------------------------------------------------------------
+# Manual QuickSight console setup (ALTERNATIVE to running this script)
+# ---------------------------------------------------------------------------
+# This script already automates the data source, dataset, and dashboard via the
+# AWS CLI. Only follow the manual console flow below if you prefer clicking
+# through the QuickSight console INSTEAD of running this script - do not do both,
+# or you will create duplicate resources.
+#
+# IMPORTANT: response.json is a nested document (it contains incrementalChanges
+# and a repositories array), and the dataset is defined as flat CSV with the
+# columns commit,tag,pullRequest,issues,repositoryCount,lastUpdated. Note that CSV only exists after this script has run at least once to
+# generate and upload it.
+#
+# Corrected manifest.json (points at a CSV data file; the manifest itself is JSON):
+#   {
+#     "fileLocations": [
+#       { "URIs": [ "s3://git-dashboard-metrics-<account-id>-<region>/output/quicksight/aggregate.csv" ] }
+#     ],
+#     "globalUploadSettings": {
+#       "format": "CSV",
+#       "delimiter": ",",
+#       "textqualifier": "\"",
+#       "containsHeader": "true"
+#     }
+#   }
+#
+# ---------------------------------------------------------------------------
 set -e
 
 # ============ CONFIGURATION ============
@@ -15,22 +60,124 @@ DATASET_ID="github-metrics-dataset"
 DASHBOARD_ID="dev-portfolio-health-dashboard"
 DASHBOARD_NAME="Development Portfolio Health Dashboard"
 # S3 bucket holding the metrics + a QuickSight manifest.json (REQUIRED)
-DATA_SOURCE_S3_BUCKET="${DATA_SOURCE_S3_BUCKET:?Set DATA_SOURCE_S3_BUCKET to your metrics bucket, e.g. git-dashboard-metrics-<account-id>-<region>}"
+DATA_SOURCE_S3_BUCKET="${DATA_SOURCE_S3_BUCKET:?Set DATA_SOURCE_S3_BUCKET to your metrics bucket, following the naming pattern git-dashboard-metrics-<account-id>-<region>}"
 DATA_SOURCE_MANIFEST_KEY="${DATA_SOURCE_MANIFEST_KEY:-manifest.json}"
+# Dedicated key for the derived single-row aggregate CSV (must NOT collide with
+# the pipeline's per-repository output/response.csv).
+AGGREGATE_CSV_KEY="${AGGREGATE_CSV_KEY:-output/quicksight/aggregate.csv}"
 # ========================================
 
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+# ============ PRE-FLIGHT VALIDATION ============
+# Resolve the account ID (auto-detected, never supplied manually).
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || true)
+if [ -z "$ACCOUNT_ID" ] || [ "$ACCOUNT_ID" = "None" ]; then
+  echo "ERROR: Could not resolve an AWS account ID." >&2
+  echo "       Configure your AWS credentials and region (e.g. run 'aws configure'" >&2
+  echo "       or export AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION) and retry." >&2
+  exit 1
+fi
 
-# Get QuickSight user ARN
+# Resolve the QuickSight user ARN.
 QS_USER_ARN=$(aws quicksight list-users \
   --aws-account-id "$ACCOUNT_ID" \
   --namespace default \
   --region "$REGION" \
   --query 'UserList[0].Arn' \
-  --output text)
+  --output text 2>/dev/null || true)
+if [ -z "$QS_USER_ARN" ] || [ "$QS_USER_ARN" = "None" ]; then
+  echo "ERROR: No QuickSight user found in account $ACCOUNT_ID (region $REGION)." >&2
+  echo "       Activate a QuickSight subscription with at least one user in this" >&2
+  echo "       region, then retry." >&2
+  exit 1
+fi
 
-echo "Account: $ACCOUNT_ID"
-echo "QS User: $QS_USER_ARN"
+# Verify the metrics bucket exists.
+if ! aws s3api head-bucket --bucket "$DATA_SOURCE_S3_BUCKET" --region "$REGION" 2>/dev/null; then
+  echo "ERROR: S3 bucket '$DATA_SOURCE_S3_BUCKET' was not found or is not accessible." >&2
+  echo "       Expected the metrics bucket (naming pattern" >&2
+  echo "       git-dashboard-metrics-<account-id>-<region>). Check DATA_SOURCE_S3_BUCKET." >&2
+  exit 1
+fi
+
+# Verify an aggregate response.json exists (prefer output/response.json, fall
+# back to root response.json). Disable exit-on-error around the probes so the
+# fallback logic and clear message work under 'set -e'.
+RESPONSE_JSON_KEY=""
+set +e
+aws s3api head-object --bucket "$DATA_SOURCE_S3_BUCKET" --key "output/response.json" --region "$REGION" >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+  RESPONSE_JSON_KEY="output/response.json"
+else
+  aws s3api head-object --bucket "$DATA_SOURCE_S3_BUCKET" --key "response.json" --region "$REGION" >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    RESPONSE_JSON_KEY="response.json"
+  fi
+fi
+set -e
+if [ -z "$RESPONSE_JSON_KEY" ]; then
+  echo "ERROR: No aggregate response.json found in bucket '$DATA_SOURCE_S3_BUCKET'." >&2
+  echo "       Looked for 'output/response.json' and 'response.json'." >&2
+  echo "       Run the metrics pipeline first so it writes output/response.json, then retry." >&2
+  exit 1
+fi
+# ================================================
+
+# ============ CONFIG TRANSPARENCY ============
+echo "Resolved configuration:"
+echo "  Account (auto-detected): $ACCOUNT_ID"
+echo "  Region:                  $REGION"
+echo "  Bucket:                  $DATA_SOURCE_S3_BUCKET"
+echo "  Manifest key:            $DATA_SOURCE_MANIFEST_KEY"
+echo "  Aggregate CSV key:       $AGGREGATE_CSV_KEY"
+echo "  QS User ARN:             $QS_USER_ARN"
+echo "  Response JSON source:    $RESPONSE_JSON_KEY"
+# ==============================================
+
+# ============ DERIVE AGGREGATE CSV ============
+echo "==> Deriving aggregate CSV from s3://$DATA_SOURCE_S3_BUCKET/$RESPONSE_JSON_KEY ..."
+aws s3 cp "s3://$DATA_SOURCE_S3_BUCKET/$RESPONSE_JSON_KEY" /tmp/qs-response.json --region "$REGION"
+
+python3 - <<'PYEOF'
+import csv
+import json
+
+with open("/tmp/qs-response.json") as f:
+    data = json.load(f)
+
+# Normalized column order matching the dataset's declared InputColumns.
+columns = ["commit", "tag", "pullRequest", "issues", "repositoryCount", "lastUpdated"]
+
+row = []
+for col in columns:
+    if col == "lastUpdated":
+        row.append(data.get(col, ""))
+    else:
+        row.append(data.get(col, 0))
+
+with open("/tmp/qs-aggregate.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(columns)
+    writer.writerow(row)
+PYEOF
+
+echo "==> Uploading aggregate CSV to s3://$DATA_SOURCE_S3_BUCKET/$AGGREGATE_CSV_KEY ..."
+aws s3 cp /tmp/qs-aggregate.csv "s3://$DATA_SOURCE_S3_BUCKET/$AGGREGATE_CSV_KEY" \
+  --content-type text/csv --region "$REGION"
+# ==============================================
+
+# ============ GENERATE QUICKSIGHT MANIFEST ============
+echo "==> Generating QuickSight manifest ..."
+cat > /tmp/qs-manifest.json << MANIFESTEOF
+{
+  "fileLocations": [ { "URIs": [ "s3://$DATA_SOURCE_S3_BUCKET/$AGGREGATE_CSV_KEY" ] } ],
+  "globalUploadSettings": { "format": "CSV", "delimiter": ",", "textqualifier": "\"", "containsHeader": "true" }
+}
+MANIFESTEOF
+
+echo "==> Uploading manifest to s3://$DATA_SOURCE_S3_BUCKET/$DATA_SOURCE_MANIFEST_KEY ..."
+aws s3 cp /tmp/qs-manifest.json "s3://$DATA_SOURCE_S3_BUCKET/$DATA_SOURCE_MANIFEST_KEY" \
+  --content-type application/json --region "$REGION"
+# ======================================================
 
 # Step 1: Create DataSource
 echo "==> Creating S3 data source..."
